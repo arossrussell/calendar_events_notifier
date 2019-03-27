@@ -1,7 +1,0 @@
-node.type.*.third_party.lightning_workflow:
-  type: mapping
-  label: 'Lightning Workflow settings'
-  mapping:
-    workflow:
-      type: string
-      label: 'Workflow ID'
