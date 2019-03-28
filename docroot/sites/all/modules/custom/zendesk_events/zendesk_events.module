@@ -53,7 +53,7 @@ function addComment() {
     $client = zendesk_client_init();
     $gcal_orgs = orgs_from_gcal();
     // Return all tickets from our custom Zendesk view.
-    $tickets_from_zd_view = $client->views(360063880753)->tickets();
+    $tickets_from_zd_view = $client->views(360078256934)->tickets();
     //Grab the TICKET IDs for each ticket, put them in an array, then print the result.
     $zd_ticket_ids = array_column($tickets_from_zd_view->tickets, 'id');
     echo "<br>";
