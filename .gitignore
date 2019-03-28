@@ -2,7 +2,4 @@
 docroot/files
 docroot/sites/*/files
 docroot/sites/*/private
-docroot/sites/all/modules/custom/calendar_events/.git
-docroot/sites/all/modules/custom/calendar_events/.gitignore
-docroot/sites/all/modules/custom/zendesk_events/.git
 
