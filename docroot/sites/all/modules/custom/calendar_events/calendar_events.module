@@ -1,0 +1,72 @@
+<?php
+//require_once DRUPAL_ROOT . '/vendor/google-api-php-client/vendor/autoload.php';
+require_once DRUPAL_ROOT . '/sites/all/modules/custom/calendar_events/vendor/google-api-php-client/vendor/autoload.php';
+
+function get_data_from_gcal() {
+    putenv('GOOGLE_APPLICATION_CREDENTIALS=' . '/mnt/gfs/eearossrussell.prod/nobackup/apikeys/calendar-events-a63526983c2d.json');
+    $client = new Google_Client();
+    $scopes = array('https://www.googleapis.com/auth/calendar.events.readonly');
+    $client->useApplicationDefaultCredentials();
+    $client->setScopes($scopes);
+
+    $service = new Google_Service_Calendar($client);
+    $calendarId = 'acquia.com_6dsb9p7nq9kstbkqa2e8cqnhl4@group.calendar.google.com';
+    $optParams = array(
+      'maxResults' => 100,
+      'orderBy' => 'startTime',
+      'singleEvents' => true,
+      'timeMin' => date("c", mktime(date("H")-12, date("i"), date("s"), date("m"), date("d"), date("Y"))),
+      'timeMax' => date("c", mktime(date("H")+12, date("i"), date("s"), date("m"), date("d"), date("Y"))),
+    );
+    $results = $service->events->listEvents($calendarId, $optParams);
+    $events = $results->getItems();
+    # how long, in seconds, should these cached objects last?
+    $cache_lifetime = 3600;
+    # establish the current time as a unix timestamp.
+    $current_time = time();
+
+    if (empty($events)) {
+        print "No, there aren't any current events right now in the
+        Events calendar.\n" . "<br>";
+      } else {
+        print "Yes, there are current events in the Events Calendar.\n" . "<br>";
+        $array = array();
+        $creator_emails = array();
+          foreach ($events as $event) {
+            array_push($array, $event->getLocation());
+            // Get event creator information
+            $creator = $event->getCreator();
+            array_push($creator_emails, $creator->email);
+            // var_dump($creator_emails);
+          }
+          $validated_array = array();
+          $user_error_position = array();
+          foreach ($array as $key=>$location_id) {
+          // zendesk ticket number validation WILL NEED TO CHANGE FROM 3 TO 7 (or whatever other validation we'd want to add
+            if (preg_match('/^\d{6}$/', $location_id) || preg_match('/^\d{3}$/', $location_id) || preg_match('/^\d{4}$/', $location_id)) {
+              array_push($validated_array, $location_id);
+            } else {
+              // If the number is not a zendesk ticket number, get position in the array
+              echo "You have inputted an incorrect format " . $location_id . ". It is in array position " . $key . "<br>";
+              array_push($user_error_position, $key);
+            }
+          }
+          // Find email address of users with errors, and eventually email them notification
+          foreach ($user_error_position as $array_position) {
+             $email = $creator_emails[$array_position];
+             echo "User who inputted error is " . $email . "<br>";
+          }
+          // var_dump($validated_array);
+          // var_dump($user_error_position);
+          //print_r($array);
+          cache_set('cached_gcal_data', $validated_array, 'cache', $current_time + $cache_lifetime);
+      }
+}
+
+function drush_calendar_events_gcal_command() {
+
+  get_data_from_gcal();
+
+};
+
+// TEST
