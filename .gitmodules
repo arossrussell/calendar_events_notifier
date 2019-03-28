@@ -1,3 +1,0 @@
-[submodule "docroot/sites/all/modules/docroot/sites/all/modules/custom/calendar_events"]
-	path = docroot/sites/all/modules/docroot/sites/all/modules/custom/calendar_events
-	url = git@github.com:BlakeScott/calendar_events.git
