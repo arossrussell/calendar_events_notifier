@@ -84,7 +84,7 @@ function addComment() {
                 $client->tickets()->updateMany( [
                         'ids'    => $array,
                         'comment'  => [
-                                    'body' => 'Hi Supporta! This customer may be having a High Traffic event right now. Please check the `Customers` calendar for more information',
+                                    'body' => "Hi Supporta! This customer may be having a High Traffic event right now. Please check the `Customers` calendar for more information. Associated Event Notification ticket: #$ticket->id",
                                     'public' => false,
                                 ],
                         'additional_tags' => ['event:yes'],
