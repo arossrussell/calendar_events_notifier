@@ -1,22 +1,21 @@
 <?php
-
+// Require Zendesk API Client
 require_once DRUPAL_ROOT . '/sites/all/modules/custom/zendesk_events/zendesk_api_client/vendor/autoload.php';
 use Zendesk\API\HttpClient as ZendeskAPI;
 
 // Initalizes the ZD Client
 function zendesk_client_init() {
-
+    // This sets the Zendesk User, Zendesk Instance/subdomain, & ZD API key set as drush variables
     $subdomain = variable_get('zendesk_events_zd_api_subdomain', FALSE);
     $username = variable_get('zendesk_events_zd_api_user', FALSE);
     $token = variable_get('zendesk_events_zd_api_token', FALSE);
-
     if (!$subdomain || !$username || !$token) {
       throw new \Exception("Fatal: This script requires you to configure a Zendesk API endpoint and user. Please do this by setting the 'zendesk_events_zd_api_subdomain', 'zendesk_events_zd_api_user', and 'zendesk_events_zd_api_token' variables.");
     }
     else {
-    $client = new ZendeskAPI($subdomain);
-    $client->setAuth('basic', ['username' => $username, 'token' => $token]);
-    return $client;
+      $client = new ZendeskAPI($subdomain);
+      $client->setAuth('basic', ['username' => $username, 'token' => $token]);
+      return $client;
     }
 }
 
@@ -25,11 +24,10 @@ function orgs_from_gcal() {
     try {
         $client = zendesk_client_init();
         //Grab the current calendar_events.module generated TICKET IDs from cache.
-        // ****Add code that Aaron Senecal wrote to determine the freshness of the data.*****
         $data = cache_get('cached_gcal_data');
         $seed_tickets = array_values($data->data);
         $orgs_from_gcal = array();
-
+        // Get Org IDs from tickets in the view
         foreach($seed_tickets as $ticket) {
             $x = $client->tickets()->find($ticket);
             $y = $x->ticket->organization_id;
@@ -38,15 +36,9 @@ function orgs_from_gcal() {
     }
     catch (\Zendesk\API\Exceptions\ApiResponseException $e) {
         echo $e->getMessage().'</br>';
-     }
-    //print the result
-    echo "<br>";
-    print_r('These are the ORG IDs for the current events: ');
-    var_dump($orgs_from_gcal);
-    echo "<br>";
+    }
     return $orgs_from_gcal;
 }
-//orgs_from_gcal();
 
 //Determine whether to add internal comments, or to just expire what's currently in the view.
 function addComment() {
@@ -56,31 +48,18 @@ function addComment() {
     $tickets_from_zd_view = $client->views(360078256934)->tickets();
     //Grab the TICKET IDs for each ticket, put them in an array, then print the result.
     $zd_ticket_ids = array_column($tickets_from_zd_view->tickets, 'id');
-    echo "<br>";
-    print_r("These are all the TICKET IDs from our Zendesk View:  ");
-    print_r($zd_ticket_ids);
     //Grab the ORG IDs for each ticket, put them in an array, then print the result.
     $zd_ticket_orgs = array_column($tickets_from_zd_view->tickets, 'organization_id');
-    echo "<br>";
-    print_r("These are all the ORG IDs from our Zendesk View:  ");
-    print_r($zd_ticket_orgs);
-    echo "<br>";
-
     //Find ORG ID matches between Google Calendar and the Zendesk view.
     $matching_org_ids = array_intersect($zd_ticket_orgs, $gcal_orgs);
-
     if (empty($matching_org_ids) == false) {
-        echo "<br>";
-        print_r("Yes, there are ORG ID matches between what's in the Events Calendar and what's in the Zendesk View!  Here are the matching ORG IDs");
-        echo "<br>";
-
+        // For tickets that have matches, Send an update & tag the ticket as event:yes
         foreach($tickets_from_zd_view->tickets as $ticket) {
             $array = array();
             $x = $ticket->id;
             $y = $ticket->organization_id;
             $z = array_push($array, $x);
             if(in_array($y, $gcal_orgs)) {
-                print_r("Adding Comment and Tag");
                 $client->tickets()->updateMany( [
                         'ids'    => $array,
                         'comment'  => [
@@ -91,7 +70,7 @@ function addComment() {
                     ]);
             }
             else {
-                //print_r("Just adding Tag.");
+                // Adding Tag for tickets that have new ZD tickets but no match -- set event:no tag
                 $client->tickets()->updateMany( [
                     'ids'    => $zd_ticket_ids,
                     'additional_tags' => ['event:no'],
@@ -100,9 +79,7 @@ function addComment() {
         }
     }
     else {
-        echo "<br>";
-        print_r("No, there are not any ORG ID matches right now between what's in the Events Calendar and what's in the Zendesk View, so this array is empty:");
-        echo "<br>";
+      // No match, set event:no tag
         try {
             $client->tickets()->updateMany( [
             'ids' => $zd_ticket_ids,
@@ -113,10 +90,8 @@ function addComment() {
         echo $e->getMessage().'</br>';
      }
   }
-    print_r($matching_org_ids);
     return $matching_org_ids;
 }
-//addComment();
 
 //This is where the master function should live in the `.module` file. When you call  `drush zd-command`  the PHP code will run in this function.
 function drush_zendesk_events_zd_command()
@@ -127,7 +102,4 @@ function drush_zendesk_events_zd_command()
     orgs_from_gcal();
     // Put in here the master function you want drush to run.
     addComment();
- }
- //drush_zendesk_events_zd_command();
-
- // TEST
+}

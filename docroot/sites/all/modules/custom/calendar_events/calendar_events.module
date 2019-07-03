@@ -1,14 +1,14 @@
 <?php
-//require_once DRUPAL_ROOT . '/vendor/google-api-php-client/vendor/autoload.php';
+// Require Google Calendar Client
 require_once DRUPAL_ROOT . '/sites/all/modules/custom/calendar_events/vendor/google-api-php-client/vendor/autoload.php';
-
+// Grab events from google calendar then save location field (associated zd ticket number) in cache
 function get_data_from_gcal() {
+    // Instantiate the google calendar client
     putenv('GOOGLE_APPLICATION_CREDENTIALS=' . '/mnt/gfs/eearossrussell.prod/nobackup/apikeys/calendar-events-a63526983c2d.json');
     $client = new Google_Client();
     $scopes = array('https://www.googleapis.com/auth/calendar.events.readonly');
     $client->useApplicationDefaultCredentials();
     $client->setScopes($scopes);
-
     $service = new Google_Service_Calendar($client);
     $calendarId = 'acquia.com_6dsb9p7nq9kstbkqa2e8cqnhl4@group.calendar.google.com';
     $optParams = array(
@@ -18,31 +18,31 @@ function get_data_from_gcal() {
       'timeMin' => date("c", mktime(date("H")-12, date("i"), date("s"), date("m"), date("d"), date("Y"))),
       'timeMax' => date("c", mktime(date("H")+12, date("i"), date("s"), date("m"), date("d"), date("Y"))),
     );
+    // Make call to the calendar API
     $results = $service->events->listEvents($calendarId, $optParams);
     $events = $results->getItems();
-    # how long, in seconds, should these cached objects last?
+    // Set cache lifetime
     $cache_lifetime = 3600;
-    # establish the current time as a unix timestamp.
+    // establish the current time as a unix timestamp.
     $current_time = time();
-
     if (empty($events)) {
         print "No, there aren't any current events right now in the
         Events calendar.\n" . "<br>";
-      } else {
+    } else {
         print "Yes, there are current events in the Events Calendar.\n" . "<br>";
         $array = array();
         $creator_emails = array();
-          foreach ($events as $event) {
+        foreach ($events as $event) {
             array_push($array, $event->getLocation());
             // Get event creator information
             $creator = $event->getCreator();
             array_push($creator_emails, $creator->email);
-            // var_dump($creator_emails);
-          }
-          $validated_array = array();
-          $user_error_position = array();
-          foreach ($array as $key=>$location_id) {
-          // zendesk ticket number validation WILL NEED TO CHANGE FROM 3 TO 7 (or whatever other validation we'd want to add
+        }
+        $validated_array = array();
+        $user_error_position = array();
+        foreach ($array as $key=>$location_id) {
+            // Zendesk ticket # Validation: zendesk ticket number validation WILL NEED TO CHANGE FROM 3 TO 7 (or whatever other validation we'd want to add
+            // Right now validating 6 digit number (current zendesk ticket number length), And 3 & 4 digits (sandbox ticket number length)
             if (preg_match('/^\d{6}$/', $location_id) || preg_match('/^\d{3}$/', $location_id) || preg_match('/^\d{4}$/', $location_id)) {
               array_push($validated_array, $location_id);
             } else {
@@ -50,23 +50,19 @@ function get_data_from_gcal() {
               echo "You have inputted an incorrect format " . $location_id . ". It is in array position " . $key . "<br>";
               array_push($user_error_position, $key);
             }
-          }
-          // Find email address of users with errors, and eventually email them notification
-          foreach ($user_error_position as $array_position) {
-             $email = $creator_emails[$array_position];
-             echo "User who inputted error is " . $email . "<br>";
-          }
-          // var_dump($validated_array);
-          // var_dump($user_error_position);
-          //print_r($array);
-          cache_set('cached_gcal_data', $validated_array, 'cache', $current_time + $cache_lifetime);
-      }
+        }
+        // Find email address of users with errors, and eventually email them notification
+        foreach ($user_error_position as $array_position) {
+            $email = $creator_emails[$array_position];
+            echo "User who inputted error is " . $email . "<br>";
+        }
+    // Set cache with results
+    cache_set('cached_gcal_data', $validated_array, 'cache', $current_time + $cache_lifetime);
+    }
 }
 
-function drush_calendar_events_gcal_command() {
-
+// Set Drush function that invokes the gcal function above
+function drush_calendar_events_gcal_command()
+{
   get_data_from_gcal();
-
-};
-
-// TEST
+}
